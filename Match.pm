@@ -1,13 +1,13 @@
 # -*- mode: perl -*-
 #
-# $Id: Match.pm,v 1.4 1999/10/24 09:41:18 tai Exp $
+# $Id: Match.pm,v 1.5 1999/10/26 16:20:15 tai Exp $
 #
 
 package Schedule::Match;
 
 =head1 NAME
 
- Schedule::Match - Manage pattern-based schedule with crash detection.
+ Schedule::Match - Handles and detects crash between pattern-based schedules
 
 =head1 SYNOPSIS
 
@@ -39,22 +39,21 @@ package Schedule::Match;
 
 =head1 DESCRIPTION
 
-This class library allows you to manage schedule which has a
-structure similar to crontab(5) format. This library offers
-methods to detect crash between schedules (with or without
-duration considered), and can also tell when, and how often
-they crash.
+This library allows you to manage schedule which has structure
+similar to crontab(5) format. It offers methods to detect crash
+between schedules (with or without duration considered), and
+can also tell when, and how often they crash.
 
 From the viewpoint of data structure, one major difference
-with crontab(5) is a concept of duration. Each schedule has
-its own duration, and crash detection can be done upon that.
+compared to crontab(5) is a concept of duration. Each schedule
+has its own duration, and crash detection can be done upon that.
 For more information on data structure, please consult
 SCHEDULE STRUCTURE section below.
 
 All schedules are assumed to be in the same timezone. You will
 have to align them beforehand if not.
 
-Currently available class methods are:
+Currently available methods are as follows:
 
 =over 4
 
@@ -72,7 +71,7 @@ use vars qw(@ISA @EXPORT_OK $VERSION);
 @ISA       = qw(Exporter);
 @EXPORT_OK = qw(scheck rcheck isleap uthash expand localtime);
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 ## Used for debugging
 my $DEBUG = 0;
@@ -391,7 +390,7 @@ sub shrink {
 
 =head1 SCHEDULE STRUCTURE
 
-Here is a structure of schedule used in this library:
+Below is a structure of schedule used in this library:
 
     life => duration of the schedule (in second)
     t_mh => minute of the hour
@@ -407,9 +406,9 @@ As you can see, this is a simple hashtable. And for all t_*
 entries, crontab(5)-like notation is supported. For this
 notation, please consult crontab(5) manpage.
 
-Here are some examples. To make description short, I stripped
+Next goes some examples. To make description short, I stripped
 the text "Schedule lasting for an hour, starting from midnight"
-from each description. Please assume that when reading.
+off from each description. Please assume that when reading.
 
 =item 1. on every Jan. 1.
 
@@ -539,8 +538,6 @@ that is long enough.
 
 This can be avoided if you specify HUGE value for $keep, but
 then things will be so slow, I believe it is not practical.
-
-I need better algorithm to handle this...
 
 =back
 

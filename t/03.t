@@ -1,24 +1,23 @@
 # -*- mode: perl -*-
 #
-# $Id: 03.t,v 1.2 1999/10/24 09:41:26 tai Exp $
+# $Id: 03.t,v 1.3 1999/10/26 16:20:52 tai Exp $
 #
 
 use Test;
 
-BEGIN { plan tests => 8 }
+BEGIN { plan tests => 6 }
 
 use Schedule::Match qw(scheck rcheck uthash isleap expand localtime);
 
-$hash = uthash(0);
+$time = time;
+@time = localtime($time);
+$hash = uthash($time);
 
-## On UNIX, should match with 09:00 on Jan. 1, 1970
-ok($hash->{t_mh}, 0);
-ok($hash->{t_hd}, 9);
-ok($hash->{t_dm}, 1);
-ok($hash->{t_my}, 0);
-ok($hash->{t_yt}, 1970);
-ok($hash->{t_dw}, 4);
-ok($hash->{t_wm}, 1);
-ok($hash->{t_om}, 1);
+ok($hash->{t_mh}, $time[1]);
+ok($hash->{t_hd}, $time[2]);
+ok($hash->{t_dm}, $time[3]);
+ok($hash->{t_my}, $time[4]);
+ok($hash->{t_yt}, $time[5] + 1900);
+ok($hash->{t_dw}, $time[6]);
 
 exit(0);
