@@ -1,6 +1,6 @@
 # -*- mode: perl -*-
 #
-# $Id: 04.t,v 1.2 1999/10/24 09:41:26 tai Exp $
+# $Id: 25expand.t,v 1.1 1999/12/18 03:29:50 tai Exp $
 #
 
 use Test;

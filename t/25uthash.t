@@ -1,6 +1,6 @@
 # -*- mode: perl -*-
 #
-# $Id: 03.t,v 1.3 1999/10/26 16:20:52 tai Exp $
+# $Id: 25uthash.t,v 1.1 1999/12/18 03:29:50 tai Exp $
 #
 
 use Test;

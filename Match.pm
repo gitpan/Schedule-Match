@@ -1,13 +1,13 @@
 # -*- mode: perl -*-
 #
-# $Id: Match.pm,v 1.5 1999/10/26 16:20:15 tai Exp $
+# $Id: Match.pm,v 1.7 2000/03/28 13:20:01 tai Exp $
 #
 
 package Schedule::Match;
 
 =head1 NAME
 
- Schedule::Match - Handles and detects crash between pattern-based schedules
+ Schedule::Match - Handles and detects clash between pattern-based schedules
 
 =head1 SYNOPSIS
 
@@ -29,8 +29,8 @@ package Schedule::Match;
  # create hash structure from given time
  $that = uthash($time, $life);
 
- @when = scheck($this, $that, ...); # list crash (duration not considered)
- @when = rcheck($this, $that, ...); # list crash (duration     considered)
+ @when = scheck($this, $that, ...); # list clash (duration not considered)
+ @when = rcheck($this, $that, ...); # list clash (duration     considered)
 
  $bool = isleap($year);         # check for leap year
  @list = expand($expr, \@fill); # expand each crontab(5) expression
@@ -40,13 +40,13 @@ package Schedule::Match;
 =head1 DESCRIPTION
 
 This library allows you to manage schedule which has structure
-similar to crontab(5) format. It offers methods to detect crash
+similar to crontab(5) format. It offers methods to detect clash
 between schedules (with or without duration considered), and
-can also tell when, and how often they crash.
+can also tell when, and how often they clash.
 
 From the viewpoint of data structure, one major difference
 compared to crontab(5) is a concept of duration. Each schedule
-has its own duration, and crash detection can be done upon that.
+has its own duration, and clash detection can be done upon that.
 For more information on data structure, please consult
 SCHEDULE STRUCTURE section below.
 
@@ -66,21 +66,21 @@ use strict;
 use Carp;
 use Time::Local;
 
-use vars qw(@ISA @EXPORT_OK $VERSION);
+use vars qw(@ISA @EXPORT_OK $VERSION $DEBUG $WILD);
 
 @ISA       = qw(Exporter);
-@EXPORT_OK = qw(scheck rcheck isleap uthash expand localtime);
+@EXPORT_OK = qw(scheck rcheck isleap uthash expand localtime $WILD);
 
-$VERSION = '0.04';
-
-## Used for debugging
-my $DEBUG = 0;
+$VERSION = '0.07';
 
 ## Wildcard schedule which matches with any schedule
-my $WILD = {
+$WILD = {
     t_mh => '*', t_hd => '*', t_dm => '*', t_my => '*',
     t_yt => '*', t_dw => '*', t_wm => '*', t_om => '*',
 };
+
+## Used for debugging
+$DEBUG = 0;
 
 ## Template used to expand schedule pattern
 my $FILL = {
@@ -100,10 +100,20 @@ my $WSEC = $DSEC *   7;
 my $MSEC = $DSEC *  31;
 my $YSEC = $DSEC * 366;
 
+=item @when = lcheck($this, $deep, $keep, $init, $last);
+
+Returns list of UNIX times which is a time given schedule
+gets invoked.
+
+=cut
+sub lcheck {
+    ;
+}
+
 =item @when = scheck($this, $that, $deep, $keep, $init, $last);
 
-Detects crash between given schedules _without_ considering
-duration. Returns the list of crash time (empty if not).
+Detects clash between given schedules _without_ considering
+duration. Returns the list of clash time (empty if not).
 It is safe to assume the list is sorted.
 
 Options are:
@@ -112,12 +122,12 @@ Options are:
 
 =item - $deep
 
-Sets the "depth" of crash detection. If set to false, it will
-report only one crash (first one) per day.
+Sets the "depth" of clash detection. If set to false, it will
+report only one clash (first one) per day.
 
 =item - $keep
 
-Sets the maximum number of crashes to detect. Defaults to 1.
+Sets the maximum number of clashes to detect. Defaults to 1.
 
 =item - $init
 
@@ -169,11 +179,11 @@ sub scheck {
 
     ##
     ## Check if there's any valid date in overwrapping part
-    ## of the schedule. It there is one, it means it'll crash
+    ## of the schedule. It there is one, it means it'll clash
     ## on that date.
     ##
 
-    my($t_yt, $t_my, $t_dm, $t_hd, $t_mh, $time, @time);
+    my($t_yt, $t_my, $t_dm, $t_hd, $t_mh, $base, $time, @time);
 
   T_YT:
     foreach $t_yt (@{$pack->{t_yt}}) {
@@ -189,28 +199,33 @@ sub scheck {
                 ## Skip if the date is invalid (such as Feb 31).
                 next if $t_dm > $NMAX[$t_my];
 
-                $time = timelocal(0, 0, 0, $t_dm, $t_my, $t_yt - 1900);
+                $base = timelocal(0, 0, 0, $t_dm, $t_my, $t_yt - 1900);
 
-                last T_YT if $last < $time;
-                next T_YT if $time < $init - $YSEC;
-                next T_MY if $time < $init - $MSEC;
-                next T_DM if $time < $init;
+                last T_YT if $last < $base;
+                next T_YT if $base < $init - $YSEC;
+                next T_MY if $base < $init - $MSEC;
+                next T_DM if $base < $init - $DSEC;
 
-                @time = &localtime($time);
+                @time = &localtime($base);
 
                 ## If all reverse-calculated entries were marked as
                 ## "WANTED", it means the day is valid (and so really
-                ## crashes).
-                next unless ($want->{t_dw}->{$time[6]}  &&
+                ## clashes).
+                next unless ($want->{t_dw}->{$time[6]} &&
                              $want->{t_wm}->{$time[9]} &&
                              $want->{t_om}->{$time[10]});
 
-                ## Record time of crash.
+                ## Record time of clash in the day.
                 foreach $t_hd (@{$pack->{t_hd}}) {
                     foreach $t_mh (@{$pack->{t_mh}}) {
-                        last T_YT if push(@keep,
-                                          $time + $t_mh + $t_hd) >= $keep;
-                        next T_DM unless  $deep;
+                        ## Time of the clash
+                        $time = $base + $t_mh + $t_hd;
+
+                        last T_YT if $last < $time;
+                        next      if $time < $init;
+
+                        last T_YT if push(@keep, $time) >= $keep;
+                        next T_DM unless ($deep);
                     }
                 }
             }
@@ -222,13 +237,13 @@ sub scheck {
 
 =item $list = rcheck($exp0, $exp1, $deep, $keep, $init, $done);
 
-Detects crash between given schedules _with_ duration considered.
+Detects clash between given schedules _with_ duration considered.
 
 This is almost compatible with B<scheck> except that $deep and $keep
 option does not work as expected (for current implementation). For
 $deep, it is always set to 1, and for $keep, you would need to
 specify much larger value (I cannot give the exact number since
-it depends on how often two schedules crash).
+it depends on how often two schedules clash).
 
 =cut
 sub rcheck {
@@ -249,12 +264,12 @@ sub rcheck {
     ## NOTE:
     ## Since there's no way of knowing how much of the retrieved
     ## schedule elements overwrap, it is impossible to guarantee
-    ## the minimum number of crashes reported (i.e. $keep).
+    ## the minimum number of clashes reported (i.e. $keep).
     @run0 = &scheck($WILD, $exp0, 1, $keep, $init - $exp0->{life}, $last);
     @run1 = &scheck($WILD, $exp1, 1, $keep, $init - $exp1->{life}, $last);
 
     ## Compare each invocation of schedule pattern, to see if there's
-    ## any crash or not.
+    ## any clash or not.
   LOOP:
     foreach (@run0) {
         my $t0 = $_;
@@ -267,7 +282,7 @@ sub rcheck {
             last if $t1 < $u0;
             next if $t0 > $u1;
 
-            ## Record the time of crash and quit if enough was found.
+            ## Record the time of clash and quit if enough was found.
             if ($t0 <= $u0 && $u0 <= $t1) {
                 last LOOP if push(@keep, $u0) >= $keep;
             }
@@ -330,6 +345,8 @@ sub localtime {
     my $time = shift;
     my @time;
 
+    $time = defined($time) ? $time : time;
+
     wantarray || return CORE::localtime($time);
 
     @time = CORE::localtime($time);
@@ -352,6 +369,8 @@ sub expand {
     my @temp;
     my @last;
     my %seen;
+
+    print STDERR "[expand] \$expr: $expr\n" if $DEBUG;
 
     ## Expand pattern, and then sort+uniq the resulting list
     foreach (@list) {
@@ -513,7 +532,7 @@ since it is possible to create pattern which never happens (Say,
 every Monday of 1st week which is 3rd Monday of the month).
 
 Other key-value pair can be in the hash, but there is no gurantee
-for those entries. It might crash with future enhancements to the
+for those entries. It might clash with future enhancements to the
 strcuture, or it might even be dropped when the internal copy
 of the structure is made.
 
@@ -526,11 +545,11 @@ Two potential bugs are currently known:
 =item UNIX-Y2K++ bug
 
 Due to a feature of localtime(3), this cannot cannot handle year
-beyond 2038. Since crash-detection code checks for the date in
+beyond 2038. Since clash-detection code checks for the date in
 the future, this library is likely to break before that (around
 2030?).
 
-=item Crash detection bug
+=item Clash detection bug
 
 When schedule(s) in question repeat in very short time (like every
 minute), method rcheck might not be able to check through timespan
